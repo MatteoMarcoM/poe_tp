@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/html.dart';
 import '../utility/crypto_helper.dart';
+import '../utility/poa_parser.dart';
+import '../pages/poa_details_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,6 +35,8 @@ class _WebSocketPageState extends State<WebSocketPage> {
   final List<String> _messages = [];
   final String _peerId = "poe_tp"; // ID del peer
   String? _challenge; // Challenge generata
+  Map<String, dynamic>? _receivedJson; // JSON ricevuto e verificato
+  String _poEToShow = "";
 
   @override
   void initState() {
@@ -48,38 +52,78 @@ class _WebSocketPageState extends State<WebSocketPage> {
     });
   }
 
-  /// Gestisce i messaggi ricevuti dal WebSocket
   void _handleMessage(String message) async {
     try {
-      // Decodifica del messaggio JSON ricevuto
+      // Controlla se il messaggio è un JSON valido
+      if (!_isJson(message)) {
+        setState(() {
+          _messages.add("Peer connesso: $message");
+        });
+        return;
+      }
+
+      // Decodifica il messaggio JSON
       final data = jsonDecode(message);
 
       if (data['payload'] != null) {
-        // Decodifica del payload in Base64
+        // Decodifica il payload in Base64
         final payloadString = utf8.decode(base64Decode(data['payload']));
-
-        // Decodifica del JSON dal payload
         final payload = jsonDecode(payloadString);
-        final sourcePeer = data['sourcePeer'];
 
-        // Verifica il contenuto del payload
-        if (payload['signed_challenge'] != null) {
+        if (payload['json'] != null && payload['signature'] != null) {
+          // Caso 1: Ricezione del JSON iniziale firmato
+          final signedJson = utf8.decode(base64Decode(payload['json']));
+          final signature = base64Decode(payload['signature']);
+          final signingPublicKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
+              payload['signing_public_key']);
+
+          // Verifica la firma del JSON
+          final isValid = CryptoHelper.verifySignature(
+              signedJson, signature, signingPublicKey);
+
+          if (isValid) {
+            setState(() {
+              _messages.add(
+                  "Firma del JSON valida. Salvato per la verifica futura.");
+              _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
+            });
+
+            // Genera e invia una challenge al client
+            _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
+            final challengeMessage = {
+              "sourcePeer": _peerId,
+              "targetPeer": data['sourcePeer'],
+              "payload": base64Encode(
+                  utf8.encode(jsonEncode({"challenge": _challenge}))),
+            };
+            _channel.sink.add(jsonEncode(challengeMessage));
+          } else {
+            setState(() {
+              _messages.add("Firma del JSON non valida!");
+            });
+          }
+        } else if (payload['signed_challenge'] != null &&
+            payload['verification_key'] != null) {
+          // Caso 2: Ricezione della challenge firmata
           final signedChallenge = base64Decode(payload['signed_challenge']);
           final verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
               payload['verification_key']);
 
           // Verifica la firma della challenge
-          final isValid = CryptoHelper.verifySignature(
+          final isChallengeValid = CryptoHelper.verifySignature(
               _challenge!, signedChallenge, verificationKey);
-          if (isValid) {
+
+          if (isChallengeValid && _receivedJson != null) {
             setState(() {
-              _messages
-                  .add("Firma della challenge valida dal peer $sourcePeer.");
+              _messages.add(
+                  "Challenge valida! Validazione e visualizzazione del JSON salvato...");
+
+              // Valida e mostra il JSON salvato
+              _validateJson(_receivedJson!);
             });
           } else {
             setState(() {
-              _messages.add(
-                  "Firma della challenge non valida dal peer $sourcePeer.");
+              _messages.add("Firma della challenge non valida!");
             });
           }
         }
@@ -88,6 +132,16 @@ class _WebSocketPageState extends State<WebSocketPage> {
       setState(() {
         _messages.add("Errore durante l'elaborazione del messaggio: $e");
       });
+    }
+  }
+
+  /// Controlla se una stringa è un JSON valido
+  bool _isJson(String str) {
+    try {
+      jsonDecode(str);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -118,6 +172,57 @@ class _WebSocketPageState extends State<WebSocketPage> {
         _messages.add("Errore durante l'invio della challenge: $e");
       });
     }
+  }
+
+  // Metodo per verificare il JSON firmato ricevuto dal client
+  void _validateJson(jsonText) {
+    var parser = PoAParser(jsonText);
+    final bool isValid = parser.validateAndParse();
+
+    setState(() {
+      if (isValid) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PoADetailsPage(
+              proofType: parser.proofType,
+              publicKeyAlgorithm: parser.publicKeyAlgorithm,
+              publicKeyVerification: parser.publicKeyVerification,
+              transferable: parser.transferable,
+              timestampFormat: parser.timestampFormat,
+              timestampTime: parser.timestampTime,
+              gpsLat: parser.gpsLat,
+              gpsLng: parser.gpsLng,
+              gpsAlt: parser.gpsAlt,
+              engagementEncoding: parser.engagementEncoding,
+              engagementData: parser.engagementData,
+              sensitiveDataHashMap: parser.sensitiveDataHashMap,
+              otherDataHashMap: parser.otherDataHashMap,
+            ),
+          ),
+        );
+      } else {
+        _poEToShow = parser.validate();
+        // Mostra un messaggio di errore
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Errore'),
+              content: Text(_poEToShow),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Chiudi'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
   }
 
   @override
