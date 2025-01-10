@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/html.dart'; // Per Flutter Web
+import 'package:web_socket_channel/html.dart';
+import '../utility/crypto_helper.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,10 +14,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'WebSocket PoE TP',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      title: 'PoE TP',
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const WebSocketPage(),
     );
   }
@@ -30,55 +30,106 @@ class WebSocketPage extends StatefulWidget {
 
 class _WebSocketPageState extends State<WebSocketPage> {
   late WebSocketChannel _channel;
-  final TextEditingController _messageController = TextEditingController();
-  final TextEditingController _peerController = TextEditingController();
   final List<String> _messages = [];
-  final String _peerId = "poe_tp"; // Cambiare questo ID per ogni peer
+  final String _peerId = "poe_tp"; // ID del peer
+  String? _challenge; // Challenge generata
 
   @override
   void initState() {
     super.initState();
-    // Connetti al server WebSocket
     _channel = HtmlWebSocketChannel.connect('ws://localhost:8080');
 
-    // Invia il proprio ID al server
+    // Registra il peer al server inviando solo l'ID
     _channel.sink.add(_peerId);
 
-    // Ascolta i messaggi dal server WebSocket
+    // Ascolta i messaggi ricevuti
     _channel.stream.listen((message) {
-      setState(() {
-        // Salva i messaggi ricevuti e visualizzali nell'interfaccia
-        _messages.add(message);
-      });
+      _handleMessage(message);
     });
   }
 
-  void _sendMessage() {
-    if (_messageController.text.isNotEmpty && _peerController.text.isNotEmpty) {
-      // Invia il messaggio al peer specificato
-      final targetPeer = _peerController.text;
-      final message = '$_peerId->$targetPeer:${_messageController.text}';
-      _channel.sink.add(message);
+  /// Gestisce i messaggi ricevuti dal WebSocket
+  void _handleMessage(String message) async {
+    try {
+      // Decodifica del messaggio JSON ricevuto
+      final data = jsonDecode(message);
+
+      if (data['payload'] != null) {
+        // Decodifica del payload in Base64
+        final payloadString = utf8.decode(base64Decode(data['payload']));
+
+        // Decodifica del JSON dal payload
+        final payload = jsonDecode(payloadString);
+        final sourcePeer = data['sourcePeer'];
+
+        // Verifica il contenuto del payload
+        if (payload['signed_challenge'] != null) {
+          final signedChallenge = base64Decode(payload['signed_challenge']);
+          final verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
+              payload['verification_key']);
+
+          // Verifica la firma della challenge
+          final isValid = CryptoHelper.verifySignature(
+              _challenge!, signedChallenge, verificationKey);
+          if (isValid) {
+            setState(() {
+              _messages
+                  .add("Firma della challenge valida dal peer $sourcePeer.");
+            });
+          } else {
+            setState(() {
+              _messages.add(
+                  "Firma della challenge non valida dal peer $sourcePeer.");
+            });
+          }
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add("Errore durante l'elaborazione del messaggio: $e");
+      });
+    }
+  }
+
+  /// Genera una nuova challenge e la invia al peer client
+  void _sendChallenge() {
+    try {
+      // Genera una nuova challenge
+      _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
+
+      // Crea il payload
+      final payload = base64Encode(utf8.encode(jsonEncode({
+        "challenge": _challenge,
+      })));
+
+      // Invia il messaggio
+      final message = {
+        "sourcePeer": _peerId,
+        "targetPeer": "poe_client",
+        "payload": payload,
+      };
+      _channel.sink.add(jsonEncode(message));
 
       setState(() {
-        _messages.add('Me to $targetPeer: ${_messageController.text}');
-        _messageController.clear();
-        _peerController.clear();
+        _messages.add("Challenge inviata al peer poe_client.");
+      });
+    } catch (e) {
+      setState(() {
+        _messages.add("Errore durante l'invio della challenge: $e");
       });
     }
   }
 
   @override
   void dispose() {
-    _channel.sink
-        .close(); // Chiudi la connessione WebSocket quando il widget è distrutto
+    _channel.sink.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('WebSocket PoE TP')),
+      appBar: AppBar(title: const Text('PoE TP')),
       body: Column(
         children: [
           Expanded(
@@ -91,27 +142,9 @@ class _WebSocketPageState extends State<WebSocketPage> {
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _peerController,
-                  decoration: const InputDecoration(
-                    labelText: 'Peer ID to Send Message',
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                TextField(
-                  controller: _messageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Message',
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                ElevatedButton(
-                  onPressed: _sendMessage,
-                  child: const Text('Send Message'),
-                ),
-              ],
+            child: ElevatedButton(
+              onPressed: _sendChallenge,
+              child: const Text('Invia challenge'),
             ),
           ),
         ],
