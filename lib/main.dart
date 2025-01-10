@@ -52,6 +52,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     });
   }
 
+  /// Gestisce i messaggi ricevuti dal WebSocket
   void _handleMessage(String message) async {
     try {
       // Controlla se il messaggio è un JSON valido
@@ -84,7 +85,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
           if (isValid) {
             setState(() {
               _messages.add(
-                  "Firma del JSON valida. Salvato per la verifica futura.");
+                  "Firma del JSON valida. Salvato per la verifica futura. Invio della challenge al Client...");
               _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
             });
 
@@ -116,10 +117,11 @@ class _WebSocketPageState extends State<WebSocketPage> {
           if (isChallengeValid && _receivedJson != null) {
             setState(() {
               _messages.add(
-                  "Challenge valida! Validazione e visualizzazione del JSON salvato...");
+                  "Challenge valida! Per visualizzare e validare il formato della PoE premere il pulsante 'Mostra PoE' in basso.");
 
               // Valida e mostra il JSON salvato
-              _validateJson(_receivedJson!);
+              // FATTO COL BOTTONE?
+              //_validateJson();
             });
           } else {
             setState(() {
@@ -175,8 +177,15 @@ class _WebSocketPageState extends State<WebSocketPage> {
   }
 
   // Metodo per verificare il JSON firmato ricevuto dal client
-  void _validateJson(jsonText) {
-    var parser = PoAParser(jsonText);
+  void _validateJson() {
+    if (_receivedJson == null) {
+      setState(() {
+        _messages.add("PoE JSON is null.");
+      });
+      return;
+    }
+    final jsonString = jsonEncode(_receivedJson!);
+    var parser = PoAParser(jsonString);
     final bool isValid = parser.validateAndParse();
 
     setState(() {
@@ -248,10 +257,25 @@ class _WebSocketPageState extends State<WebSocketPage> {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
+              onPressed: _validateJson,
+              child: const Text('Mostra PoE'),
+            ),
+          ),
+          /*if (_receivedJson != null) // Mostra il JSON ricevuto
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'JSON Ricevuto:\n${jsonEncode(_receivedJson)}',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
               onPressed: _sendChallenge,
               child: const Text('Invia challenge'),
             ),
-          ),
+          ),*/
         ],
       ),
     );

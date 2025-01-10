@@ -33,7 +33,7 @@ class PoAParser {
 
       // Parsing della chiave pubblica
       final publicKey = parsedJson['public_key'];
-      publicKeyAlgorithm = publicKey['algoritm'];
+      publicKeyAlgorithm = publicKey['algorithm'];
       publicKeyVerification = publicKey['verification_key'];
 
       // Parsing del timestamp
@@ -91,9 +91,9 @@ class PoAParser {
 
       // Verifica della chiave pubblica
       final publicKey = parsedJson['public_key'];
-      if (!publicKey.containsKey('algoritm') ||
-          publicKey['algoritm'] is! String) {
-        return 'Errore: Il campo "algoritm" è mancante o non è una stringa.';
+      if (!publicKey.containsKey('algorithm') ||
+          publicKey['algorithm'] is! String) {
+        return 'Errore: Il campo "algorithm" è mancante o non è una stringa.';
       }
       if (!publicKey.containsKey('verification_key') ||
           publicKey['verification_key'] is! String) {
