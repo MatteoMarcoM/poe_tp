@@ -85,7 +85,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
           if (isValid) {
             setState(() {
               _messages.add(
-                  "Firma del JSON valida. Salvato per la verifica futura. Invio della challenge al Client...");
+                  "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON valida. JSON salvato per la verifica futura.");
               _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
             });
 
@@ -97,10 +97,15 @@ class _WebSocketPageState extends State<WebSocketPage> {
               "payload": base64Encode(
                   utf8.encode(jsonEncode({"challenge": _challenge}))),
             };
+            // invio della challenge
             _channel.sink.add(jsonEncode(challengeMessage));
+            setState(() {
+              _messages.add("Challenge inviata al Client.");
+            });
           } else {
             setState(() {
-              _messages.add("Firma del JSON non valida!");
+              _messages.add(
+                  "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
             });
           }
         } else if (payload['signed_challenge'] != null &&
@@ -117,7 +122,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
           if (isChallengeValid && _receivedJson != null) {
             setState(() {
               _messages.add(
-                  "Challenge valida! Per visualizzare e validare il formato della PoE premere il pulsante 'Mostra PoE' in basso.");
+                  "Challenge valida! Per validare il formato della PoE e visualizzarla premere il pulsante 'Mostra PoE' in basso.");
 
               // Valida e mostra il JSON salvato
               // FATTO COL BOTTONE?
