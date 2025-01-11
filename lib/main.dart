@@ -53,28 +53,30 @@ class _WebSocketPageState extends State<WebSocketPage> {
     });
   }
 
-  /// Invia un messaggio di 'hello' per capire se e' connesso agli altri peers
-  void _sendHello(String targetPeerString) {
-    final helloMessage = {
-      "sourcePeer": _peerId,
-      "targetPeer": targetPeerString,
-      "payload":
-          base64Encode(utf8.encode(jsonEncode({"hello": "Ciao da $_peerId."}))),
-    };
-    // invio del messaggio
-    _channel.sink.add(jsonEncode(helloMessage));
+  void _sendMessage(Map<String, dynamic> message) {
+    _channel.sink.add(jsonEncode(message));
   }
 
-  /// Invia un messaggio di 'responseHello' per capire se e' connesso agli altri peers
-  void _sendResponseHello(String targetPeerString) {
-    final helloMessage = {
-      "sourcePeer": _peerId,
-      "targetPeer": targetPeerString,
-      "payload": base64Encode(
-          utf8.encode(jsonEncode({"responseHello": "Ciao da $_peerId."}))),
-    };
-    // invio del messaggio
-    _channel.sink.add(jsonEncode(helloMessage));
+  /// Invia un messaggio di 'hello' per capire se e' connesso agli altri peers
+  // per creare il json di un messaggio hello
+  Map<String, dynamic> _buildHelloMessage(
+      String targetPeer, String messageKeyString) {
+    if (messageKeyString != "hello" && messageKeyString != "responseHello") {
+      return {
+        "sourcePeer": _peerId,
+        "targetPeer": targetPeer,
+        "payload": base64Encode(utf8.encode(jsonEncode({
+          "error": "Errore: Il formato del messaggio di 'hello' e' sbagliato."
+        }))),
+      };
+    } else {
+      return {
+        "sourcePeer": _peerId,
+        "targetPeer": targetPeer,
+        "payload": base64Encode(
+            utf8.encode(jsonEncode({messageKeyString: "Ciao da $_peerId."}))),
+      };
+    }
   }
 
   /// Gestisce i messaggi ricevuti dal WebSocket
@@ -83,7 +85,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
       // Controlla se il messaggio è un JSON valido
       if (!_isJson(message)) {
         setState(() {
-          _messages.add("Peer connesso: $message");
+          _messages.add("Errore: $message non è in formato JSON.");
         });
         return;
       }
@@ -97,74 +99,18 @@ class _WebSocketPageState extends State<WebSocketPage> {
         final payload = jsonDecode(payloadString);
 
         if (payload['json'] != null && payload['signature'] != null) {
-          // Caso 1: Ricezione del JSON iniziale firmato
-          final signedJson = utf8.decode(base64Decode(payload['json']));
-          final signature = base64Decode(payload['signature']);
-          final signingPublicKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
-              payload['signing_public_key']);
-
-          // Verifica la firma del JSON
-          final isValid = CryptoHelper.verifySignature(
-              signedJson, signature, signingPublicKey);
-
-          if (isValid) {
-            setState(() {
-              _messages.add(
-                  "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON valida. JSON salvato per la verifica futura.");
-              _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
-            });
-
-            // Genera e invia una challenge al client
-            _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
-            final challengeMessage = {
-              "sourcePeer": _peerId,
-              "targetPeer": data['sourcePeer'],
-              "payload": base64Encode(
-                  utf8.encode(jsonEncode({"challenge": _challenge}))),
-            };
-            // invio della challenge
-            _channel.sink.add(jsonEncode(challengeMessage));
-            setState(() {
-              _messages.add("Challenge inviata al Client.");
-            });
-          } else {
-            setState(() {
-              _messages.add(
-                  "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
-            });
-          }
+          _processSignedJson(payload, data);
           // se la PoE viene trasferita occorre verificare la challenge
           // con la owner_public_key che si trova nella blockchain
         } else if (payload['signed_challenge'] != null &&
             payload['verification_key'] != null &&
             payload['verification_key'] ==
                 _receivedJson!['public_key']['verification_key']) {
-          // Caso 2: Ricezione della challenge firmata
-          final signedChallenge = base64Decode(payload['signed_challenge']);
-          final verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
-              payload['verification_key']);
-
-          // Verifica la firma della challenge
-          final isChallengeValid = CryptoHelper.verifySignature(
-              _challenge!, signedChallenge, verificationKey);
-
-          if (isChallengeValid && _receivedJson != null) {
-            setState(() {
-              _messages.add(
-                  "Challenge valida! Per validare il formato della PoE e visualizzarla premere il pulsante 'Mostra PoE' in basso.");
-
-              // Valida e mostra il JSON salvato
-              // FATTO COL BOTTONE?
-              //_validateJson();
-            });
-          } else {
-            setState(() {
-              _messages.add("Firma della challenge non valida!");
-            });
-          }
+          // Logica di verifica della challenge
+          _processChallenge(payload, data);
         } else if (payload['hello'] != null) {
           // rispondo al saluto
-          _sendResponseHello(_targetPeer);
+          _sendMessage(_buildHelloMessage(_targetPeer, 'responseHello'));
         } else if (payload['responseHello'] != null) {
           // scrivi il saluto in chat
           setState(() {
@@ -189,27 +135,78 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
-  /// Genera una nuova challenge e la invia al peer client
-  void _sendChallenge() {
-    try {
-      // Genera una nuova challenge
-      _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
+  /// Logica di verifica firma JSON
+  void _processSignedJson(
+      Map<String, dynamic> payload, Map<String, dynamic> data) {
+    // Caso 1: Ricezione del JSON iniziale firmato
+    final signedJson = utf8.decode(base64Decode(payload['json']));
+    final signature = base64Decode(payload['signature']);
+    final signingPublicKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
+        payload['signing_public_key']);
 
-      // Crea il payload
-      final payload = base64Encode(utf8.encode(jsonEncode({
-        "challenge": _challenge,
-      })));
+    // Verifica la firma del JSON
+    final isValid =
+        CryptoHelper.verifySignature(signedJson, signature, signingPublicKey);
 
-      // Invia il messaggio
-      final message = {
-        "sourcePeer": _peerId,
-        "targetPeer": "poe_client",
-        "payload": payload,
-      };
-      _channel.sink.add(jsonEncode(message));
-
+    if (isValid) {
       setState(() {
-        _messages.add("Challenge inviata al peer poe_client.");
+        _messages.add(
+            "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON valida. JSON salvato per la verifica futura.");
+        _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
+      });
+
+      // invia la challenge al client
+      _sendChallenge(data['sourcePeer']);
+    } else {
+      setState(() {
+        _messages.add(
+            "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
+      });
+    }
+  }
+
+  void _processChallenge(
+      Map<String, dynamic> payload, Map<String, dynamic> data) {
+    // Caso 2: Ricezione della challenge firmata
+    final signedChallenge = base64Decode(payload['signed_challenge']);
+    final verificationKey =
+        CryptoHelper.decodeRSAPublicKeyFromBase64(payload['verification_key']);
+
+    // Verifica la firma della challenge
+    final isChallengeValid = CryptoHelper.verifySignature(
+        _challenge!, signedChallenge, verificationKey);
+
+    if (isChallengeValid && _receivedJson != null) {
+      setState(() {
+        _messages.add(
+            "Challenge valida! Per validare il formato della PoE e visualizzarla premere il pulsante 'Mostra PoE' in basso.");
+
+        // Valida e mostra il JSON salvato
+        // FATTO COL BOTTONE?
+        //_validateJson();
+      });
+    } else {
+      setState(() {
+        _messages.add("Firma della challenge non valida!");
+      });
+    }
+  }
+
+  /// Genera una nuova challenge e la invia al peer client
+  void _sendChallenge(String targetPeer) {
+    try {
+      // Genera e invia una challenge al client
+      _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
+      final challengeMessage = {
+        "sourcePeer": _peerId,
+        "targetPeer": targetPeer,
+        "payload":
+            base64Encode(utf8.encode(jsonEncode({"challenge": _challenge}))),
+      };
+      // invio della challenge
+      _sendMessage(challengeMessage);
+      setState(() {
+        _messages.add("Challenge inviata al Client.");
       });
     } catch (e) {
       setState(() {
@@ -301,7 +298,8 @@ class _WebSocketPageState extends State<WebSocketPage> {
           Padding(
               padding: const EdgeInsets.all(8.0),
               child: ElevatedButton(
-                onPressed: () => _sendHello(_targetPeer),
+                onPressed: () =>
+                    _sendMessage(_buildHelloMessage(_targetPeer, 'hello')),
                 child: Text('Testa connessione con $_targetPeer'),
               )),
           Padding(
