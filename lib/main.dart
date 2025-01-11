@@ -99,6 +99,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
         final payload = jsonDecode(payloadString);
 
         if (payload['json'] != null && payload['signature'] != null) {
+          // Logica di verifica firma JSON
           _processSignedJson(payload, data);
           // se la PoE viene trasferita occorre verificare la challenge
           // con la owner_public_key che si trova nella blockchain
