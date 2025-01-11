@@ -34,6 +34,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
   late WebSocketChannel _channel;
   final List<String> _messages = [];
   final String _peerId = "poe_tp"; // ID del peer
+  final String _targetPeer = "poe_client"; // Peer destinatario fisso
   String? _challenge; // Challenge generata
   Map<String, dynamic>? _receivedJson; // JSON ricevuto e verificato
   String _poEToShow = "";
@@ -50,6 +51,30 @@ class _WebSocketPageState extends State<WebSocketPage> {
     _channel.stream.listen((message) {
       _handleMessage(message);
     });
+  }
+
+  /// Invia un messaggio di 'hello' per capire se e' connesso agli altri peers
+  void _sendHello(String targetPeerString) {
+    final helloMessage = {
+      "sourcePeer": _peerId,
+      "targetPeer": targetPeerString,
+      "payload":
+          base64Encode(utf8.encode(jsonEncode({"hello": "Ciao da $_peerId."}))),
+    };
+    // invio del messaggio
+    _channel.sink.add(jsonEncode(helloMessage));
+  }
+
+  /// Invia un messaggio di 'responseHello' per capire se e' connesso agli altri peers
+  void _sendResponseHello(String targetPeerString) {
+    final helloMessage = {
+      "sourcePeer": _peerId,
+      "targetPeer": targetPeerString,
+      "payload": base64Encode(
+          utf8.encode(jsonEncode({"responseHello": "Ciao da $_peerId."}))),
+    };
+    // invio del messaggio
+    _channel.sink.add(jsonEncode(helloMessage));
   }
 
   /// Gestisce i messaggi ricevuti dal WebSocket
@@ -108,8 +133,12 @@ class _WebSocketPageState extends State<WebSocketPage> {
                   "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
             });
           }
+          // se la PoE viene trasferita occorre verificare la challenge
+          // con la owner_public_key che si trova nella blockchain
         } else if (payload['signed_challenge'] != null &&
-            payload['verification_key'] != null) {
+            payload['verification_key'] != null &&
+            payload['verification_key'] ==
+                _receivedJson!['public_key']['verification_key']) {
           // Caso 2: Ricezione della challenge firmata
           final signedChallenge = base64Decode(payload['signed_challenge']);
           final verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
@@ -133,6 +162,14 @@ class _WebSocketPageState extends State<WebSocketPage> {
               _messages.add("Firma della challenge non valida!");
             });
           }
+        } else if (payload['hello'] != null) {
+          // rispondo al saluto
+          _sendResponseHello(_targetPeer);
+        } else if (payload['responseHello'] != null) {
+          // scrivi il saluto in chat
+          setState(() {
+            _messages.add(payload['responseHello']);
+          });
         }
       }
     } catch (e) {
@@ -248,7 +285,9 @@ class _WebSocketPageState extends State<WebSocketPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PoE TP')),
+      appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: const Text('PoE TP')),
       body: Column(
         children: [
           Expanded(
@@ -260,27 +299,18 @@ class _WebSocketPageState extends State<WebSocketPage> {
             ),
           ),
           Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ElevatedButton(
+                onPressed: () => _sendHello(_targetPeer),
+                child: Text('Testa connessione con $_targetPeer'),
+              )),
+          Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
               onPressed: _validateJson,
               child: const Text('Mostra PoE'),
             ),
           ),
-          /*if (_receivedJson != null) // Mostra il JSON ricevuto
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                'JSON Ricevuto:\n${jsonEncode(_receivedJson)}',
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: _sendChallenge,
-              child: const Text('Invia challenge'),
-            ),
-          ),*/
         ],
       ),
     );

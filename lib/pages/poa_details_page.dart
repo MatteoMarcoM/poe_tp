@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 class PoADetailsPage extends StatelessWidget {
@@ -37,7 +39,7 @@ class PoADetailsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('PoA Details'),
+        title: const Text('PoE Details'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -60,7 +62,7 @@ class PoADetailsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'La PoA è valida!',
+                    'La PoE è valida!',
                     style: Theme.of(context)
                         .textTheme
                         .headlineLarge, // Stile del titolo
@@ -87,6 +89,8 @@ class PoADetailsPage extends StatelessWidget {
                       _buildTableRow('GPS Altitude', gpsAlt.toString()),
                       _buildTableRow('Engagement Encoding', engagementEncoding),
                       _buildTableRow('Engagement Data', engagementData),
+                      _buildTableRow('Engagement Data Decoded',
+                          utf8.decode(base64Decode(engagementData))),
                     ],
                   ),
                   const SizedBox(height: 20),
