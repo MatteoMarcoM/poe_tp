@@ -5,6 +5,7 @@ import 'package:web_socket_channel/html.dart';
 import '../utility/crypto_helper.dart';
 import '../utility/poa_parser.dart';
 import '../pages/poa_details_page.dart';
+import 'package:pointycastle/pointycastle.dart' as pc;
 
 void main() {
   runApp(const MyApp());
@@ -39,9 +40,13 @@ class _WebSocketPageState extends State<WebSocketPage> {
   Map<String, dynamic>? _receivedJson; // JSON ricevuto e verificato
   String _poEToShow = "";
 
+  // ES verification key
+  pc.RSAPublicKey? _verificationKey;
+
   @override
   void initState() {
     super.initState();
+
     _channel = HtmlWebSocketChannel.connect('ws://localhost:8080');
 
     // Registra il peer al server inviando solo l'ID
@@ -79,6 +84,22 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
+  void _requestVerificationKey() {
+    final requestJson = jsonEncode({"request": "verification_key"});
+
+    final requestMessage = {
+      "sourcePeer": "poe_tp",
+      "targetPeer": "poe_es",
+      "payload": base64Encode(utf8.encode(requestJson))
+    };
+
+    _sendMessage(requestMessage);
+
+    setState(() {
+      _messages.add("Richiesta di chiave di verifica inviata al poe_es");
+    });
+  }
+
   /// Gestisce i messaggi ricevuti dal WebSocket
   void _handleMessage(String message) async {
     try {
@@ -98,6 +119,10 @@ class _WebSocketPageState extends State<WebSocketPage> {
         final payloadString = utf8.decode(base64Decode(data['payload']));
         final payload = jsonDecode(payloadString);
 
+        setState(() {
+          _messages.add("Payload: $payload");
+        });
+
         if (payload['json'] != null && payload['signature'] != null) {
           // Logica di verifica firma JSON
           _processSignedJson(payload, data);
@@ -109,6 +134,13 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 _receivedJson!['public_key']['verification_key']) {
           // Logica di verifica della challenge
           _processChallenge(payload, data);
+        } else if (payload.containsKey("verification_key")) {
+          setState(() {
+            _verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
+                payload["verification_key"]);
+            _messages
+                .add("Chiave di verifica di ES ricevuta: $_verificationKey");
+          });
         } else if (payload['hello'] != null) {
           // rispondo al saluto
           _sendMessage(_buildHelloMessage(_targetPeer, 'responseHello'));
@@ -139,15 +171,20 @@ class _WebSocketPageState extends State<WebSocketPage> {
   /// Logica di verifica firma JSON
   void _processSignedJson(
       Map<String, dynamic> payload, Map<String, dynamic> data) {
+    if (_verificationKey == null) {
+      setState(() {
+        _messages.add("La chiave di verifica di ES e' null.");
+      });
+      return;
+    }
+
     // Caso 1: Ricezione del JSON iniziale firmato
-    final signedJson = utf8.decode(base64Decode(payload['json']));
+    final signedJson = payload['json'];
     final signature = base64Decode(payload['signature']);
-    final signingPublicKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
-        payload['signing_public_key']);
 
     // Verifica la firma del JSON
     final isValid =
-        CryptoHelper.verifySignature(signedJson, signature, signingPublicKey);
+        CryptoHelper.verifySignature(signedJson, signature, _verificationKey!);
 
     if (isValid) {
       setState(() {
@@ -162,6 +199,12 @@ class _WebSocketPageState extends State<WebSocketPage> {
       setState(() {
         _messages.add(
             "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
+      });
+      // debug
+      setState(() {
+        _messages.add(
+            "signed json: $signedJson, signature: ${payload['signature']}, public key: ${_verificationKey!}");
+        _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
       });
     }
   }
@@ -230,6 +273,9 @@ class _WebSocketPageState extends State<WebSocketPage> {
 
     setState(() {
       if (isValid) {
+        // reset current poe
+        _receivedJson = null;
+        // move to details page
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -303,6 +349,21 @@ class _WebSocketPageState extends State<WebSocketPage> {
                     _sendMessage(_buildHelloMessage(_targetPeer, 'hello')),
                 child: Text('Testa connessione con $_targetPeer'),
               )),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: () =>
+                  _sendMessage(_buildHelloMessage("poe_es", 'hello')),
+              child: const Text('Testa connessione con poe_es'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ElevatedButton(
+              onPressed: _requestVerificationKey,
+              child: const Text('Chiedi chiave di verifica a ES'),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: ElevatedButton(
