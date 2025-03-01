@@ -85,7 +85,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
   }
 
   void _requestVerificationKey() {
-    final requestJson = jsonEncode({"request": "verification_key"});
+    final requestJson = jsonEncode({"request": "es_verification_key"});
 
     final requestMessage = {
       "sourcePeer": "poe_tp",
@@ -129,17 +129,15 @@ class _WebSocketPageState extends State<WebSocketPage> {
           // se la PoE viene trasferita occorre verificare la challenge
           // con la owner_public_key che si trova nella blockchain
         } else if (payload['signed_challenge'] != null &&
-            payload['verification_key'] != null &&
-            payload['verification_key'] ==
-                _receivedJson!['public_key']['verification_key']) {
+            payload['verification_key'] != null) {
           // Logica di verifica della challenge
           _processChallenge(payload, data);
-        } else if (payload.containsKey("verification_key")) {
+        } else if (payload.containsKey("es_verification_key")) {
           setState(() {
             _verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
-                payload["verification_key"]);
-            _messages
-                .add("Chiave di verifica di ES ricevuta: $_verificationKey");
+                payload["es_verification_key"]);
+            _messages.add(
+                "Chiave di verifica di ES ricevuta: ${payload["es_verification_key"]}");
           });
         } else if (payload['hello'] != null) {
           // rispondo al saluto
