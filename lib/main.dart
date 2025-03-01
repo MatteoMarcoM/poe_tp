@@ -129,7 +129,9 @@ class _WebSocketPageState extends State<WebSocketPage> {
           // se la PoE viene trasferita occorre verificare la challenge
           // con la owner_public_key che si trova nella blockchain
         } else if (payload['signed_challenge'] != null &&
-            payload['verification_key'] != null) {
+            payload['verification_key'] != null &&
+            payload['verification_key'] ==
+                _receivedJson!['public_key']['verification_key']) {
           // Logica di verifica della challenge
           _processChallenge(payload, data);
         } else if (payload.containsKey("es_verification_key")) {
