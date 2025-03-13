@@ -58,6 +58,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     });
   }
 
+  // per inviare un messaggio dato il json
   void _sendMessage(Map<String, dynamic> message) {
     _channel.sink.add(jsonEncode(message));
   }
@@ -119,9 +120,12 @@ class _WebSocketPageState extends State<WebSocketPage> {
         final payloadString = utf8.decode(base64Decode(data['payload']));
         final payload = jsonDecode(payloadString);
 
+        /*
+        // DEBUG
         setState(() {
           _messages.add("Payload: $payload");
         });
+        */
 
         if (payload['json'] != null && payload['signature'] != null) {
           // Logica di verifica firma JSON
@@ -142,8 +146,14 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 "Chiave di verifica di ES ricevuta: ${payload["es_verification_key"]}");
           });
         } else if (payload['hello'] != null) {
+          // scrivi il saluto in chat
+          setState(() {
+            _messages.add(payload['hello']);
+          });
           // rispondo al saluto
-          _sendMessage(_buildHelloMessage(_targetPeer, 'responseHello'));
+          // rispondo al saluto
+          final targetPeerName = data['sourcePeer'];
+          _sendMessage(_buildHelloMessage(targetPeerName, 'responseHello'));
         } else if (payload['responseHello'] != null) {
           // scrivi il saluto in chat
           setState(() {
@@ -346,8 +356,8 @@ class _WebSocketPageState extends State<WebSocketPage> {
               padding: const EdgeInsets.all(8.0),
               child: ElevatedButton(
                 onPressed: () =>
-                    _sendMessage(_buildHelloMessage(_targetPeer, 'hello')),
-                child: Text('Testa connessione con $_targetPeer'),
+                    _sendMessage(_buildHelloMessage("poe_client", 'hello')),
+                child: const Text('Testa connessione con poe_client'),
               )),
           Padding(
             padding: const EdgeInsets.all(8.0),
