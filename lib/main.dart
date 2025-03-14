@@ -97,7 +97,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     _sendMessage(requestMessage);
 
     setState(() {
-      _messages.add("Richiesta di chiave di verifica inviata al poe_es");
+      _messages.add("Richiesta della chiave di verifica inviata al poe_es");
     });
   }
 
@@ -340,48 +340,101 @@ class _WebSocketPageState extends State<WebSocketPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: const Text('PoE TP')),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                return ListTile(title: Text(_messages[index]));
-              },
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('PoE TP'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Titolo sopra la lista dei messaggi
+            const Text(
+              "Messaggi ricevuti",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
             ),
-          ),
-          Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                onPressed: () =>
-                    _sendMessage(_buildHelloMessage("poe_client", 'hello')),
-                child: const Text('Testa connessione con poe_client'),
-              )),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: () =>
-                  _sendMessage(_buildHelloMessage("poe_es", 'hello')),
-              child: const Text('Testa connessione con poe_es'),
+            const SizedBox(height: 8), // Spazio tra titolo e lista
+
+            // Box con la ListView dei messaggi
+            Expanded(
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 4, // Effetto ombra per il box
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ListView.builder(
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        leading: Icon(Icons.message, color: Colors.deepPurple),
+                        title: Text(_messages[index]),
+                        tileColor: Colors.grey[200],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: _requestVerificationKey,
-              child: const Text('Chiedi chiave di verifica a ES'),
+
+            const SizedBox(height: 16), // Spazio prima dei bottoni
+
+            // Bottoni allineati meglio con Wrap
+            Wrap(
+              spacing: 8.0, // Spazio orizzontale tra i bottoni
+              runSpacing: 8.0, // Spazio verticale tra le righe di bottoni
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      _sendMessage(_buildHelloMessage("poe_client", 'hello')),
+                  icon: Icon(Icons.network_check),
+                  label: const Text('Testa connessione con poe_client'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      _sendMessage(_buildHelloMessage("poe_es", 'hello')),
+                  icon: Icon(Icons.network_check),
+                  label: const Text('Testa connessione con poe_es'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _requestVerificationKey,
+                  icon: Icon(Icons.vpn_key),
+                  label: const Text('Chiedi chiave di verifica a ES'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _validateJson,
+                  icon: const Icon(Icons.visibility),
+                  label: const Text('Mostra PoE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: _validateJson,
-              child: const Text('Mostra PoE'),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
