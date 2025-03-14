@@ -211,11 +211,13 @@ class _WebSocketPageState extends State<WebSocketPage> {
             "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
       });
       // debug
+      /*
       setState(() {
         _messages.add(
             "signed json: $signedJson, signature: ${payload['signature']}, public key: ${_verificationKey!}");
         _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
       });
+      */
     }
   }
 
