@@ -1,6 +1,9 @@
 import 'dart:convert';
-
+import 'dart:typed_data';
+import '../utility/crypto_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:pointycastle/export.dart' as pc;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 class PoADetailsPage extends StatelessWidget {
   final String proofType;
@@ -17,100 +20,92 @@ class PoADetailsPage extends StatelessWidget {
   final Map<String, String> sensitiveDataHashMap;
   final Map<String, dynamic> otherDataHashMap;
 
-  const PoADetailsPage({
-    super.key,
-    required this.proofType,
-    required this.publicKeyAlgorithm,
-    required this.publicKeyVerification,
-    required this.transferable,
-    required this.timestampFormat,
-    required this.timestampTime,
-    required this.gpsLat,
-    required this.gpsLng,
-    required this.gpsAlt,
-    required this.engagementEncoding,
-    required this.engagementData,
-    required this.sensitiveDataHashMap,
-    required this.otherDataHashMap,
-  });
+  const PoADetailsPage(
+      {super.key,
+      required this.proofType,
+      required this.publicKeyAlgorithm,
+      required this.publicKeyVerification,
+      required this.transferable,
+      required this.timestampFormat,
+      required this.timestampTime,
+      required this.gpsLat,
+      required this.gpsLng,
+      required this.gpsAlt,
+      required this.engagementEncoding,
+      required this.engagementData,
+      required this.sensitiveDataHashMap,
+      required this.otherDataHashMap});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('PoE Details'),
+        title: const Text('Dettagli PoE'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context); // Torna alla pagina JsonPage
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          // Per gestire lo scroll in caso di contenuti lunghi
           child: Card(
-            elevation: 5, // Aggiunge un'ombra alla scheda
+            elevation: 5,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'La PoE è valida!',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineLarge, // Stile del titolo
-                  ),
-                  const SizedBox(height: 20),
-                  Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(1), // Colonna delle chiavi
-                      1: FlexColumnWidth(2), // Colonna dei valori
-                    },
-                    border: TableBorder.all(
-                        color: Colors.grey.shade300), // Bordo della tabella
+                  Row(
                     children: [
-                      _buildTableRow('Proof Type', proofType),
-                      _buildTableRow(
-                          'Public Key Algorithm', publicKeyAlgorithm),
-                      _buildTableRow(
-                          'Public Verification Key', publicKeyVerification),
-                      _buildTableRow('Transferable', '$transferable'),
-                      _buildTableRow('Timestamp Format', timestampFormat),
-                      _buildTableRow('Timestamp Time', timestampTime),
-                      _buildTableRow('GPS Latitude', gpsLat.toString()),
-                      _buildTableRow('GPS Longitude', gpsLng.toString()),
-                      _buildTableRow('GPS Altitude', gpsAlt.toString()),
-                      _buildTableRow('Engagement Encoding', engagementEncoding),
-                      _buildTableRow('Engagement Data', engagementData),
-                      _buildTableRow('Engagement Data Decoded',
-                          utf8.decode(base64Decode(engagementData))),
+                      const Icon(Icons.verified, color: Colors.green, size: 28),
+                      const SizedBox(width: 10),
+                      Text(
+                        'PoE Valida!',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall!
+                            .copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    'Dati Sensibili:',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall, // Stile dei dati sensibili
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSensitiveDataTable(),
+                  _buildSectionTitle("Informazioni Generali"),
+                  _buildTable([
+                    _buildTableRow('Tipo di Prova', proofType),
+                    _buildTableRow(
+                        'Algoritmo Chiave Pubblica', publicKeyAlgorithm),
+                    _buildTableRow('Chiave di Verifica', publicKeyVerification),
+                    _buildTableRow('Trasferibile', transferable ? 'Sì' : 'No'),
+                    _buildTableRow('Formato Timestamp', timestampFormat),
+                    _buildTableRow('Orario Timestamp', timestampTime),
+                  ]),
                   const SizedBox(height: 20),
-                  Text(
-                    'Altri Dati:',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall, // Stile degli altri dati
-                  ),
-                  const SizedBox(height: 10),
-                  _buildOtherDataTable(),
+                  _buildSectionTitle("Dati GPS"),
+                  _buildTable([
+                    _buildTableRow('Latitudine', gpsLat.toString()),
+                    _buildTableRow('Longitudine', gpsLng.toString()),
+                    _buildTableRow('Altitudine', gpsAlt.toString()),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildSectionTitle("Dati di Engagement"),
+                  _buildTable([
+                    _buildTableRow('Codifica', engagementEncoding),
+                    _buildTableRow('Dati (Base64)', engagementData),
+                    _buildTableRow('Dati Decodificati',
+                        utf8.decode(base64Decode(engagementData))),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildSectionTitle("Dati Sensibili"),
+                  _buildDataTable(sensitiveDataHashMap),
+                  const SizedBox(height: 20),
+                  _buildSectionTitle("Altri Dati"),
+                  _buildDataTable(otherDataHashMap),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -120,54 +115,46 @@ class PoADetailsPage extends StatelessWidget {
     );
   }
 
-  // Funzione per creare una riga della tabella
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+          fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+    );
+  }
+
+  Widget _buildTable(List<TableRow> rows) {
+    return Table(
+      columnWidths: const {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
+      border: TableBorder.all(color: Colors.grey.shade300),
+      children: rows,
+    );
+  }
+
   TableRow _buildTableRow(String key, String value) {
     return TableRow(
       children: [
-        Padding(
+        Container(
+          color: Colors.grey.shade200,
           padding: const EdgeInsets.all(8.0),
           child: Text(
             key,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 16),
-          ),
+          child: SelectableText(value),
         ),
       ],
     );
   }
 
-  // Tabella per i dati sensibili
-  Widget _buildSensitiveDataTable() {
+  Widget _buildDataTable(Map<String, dynamic> data) {
     return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(2),
-      },
+      columnWidths: const {0: FlexColumnWidth(1), 1: FlexColumnWidth(2)},
       border: TableBorder.all(color: Colors.grey.shade300),
-      children: sensitiveDataHashMap.entries.map((entry) {
-        return _buildTableRow(entry.key, entry.value);
-      }).toList(),
-    );
-  }
-
-  // Tabella per altri dati
-  Widget _buildOtherDataTable() {
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(2),
-      },
-      border: TableBorder.all(color: Colors.grey.shade300),
-      children: otherDataHashMap.entries.map((entry) {
+      children: data.entries.map((entry) {
         return _buildTableRow(entry.key, entry.value.toString());
       }).toList(),
     );
