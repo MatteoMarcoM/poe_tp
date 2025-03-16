@@ -1,9 +1,5 @@
 import 'dart:convert';
-import 'dart:typed_data';
-import '../utility/crypto_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:pointycastle/export.dart' as pc;
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 class PoADetailsPage extends StatelessWidget {
   final String proofType;
@@ -41,7 +37,8 @@ class PoADetailsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Dettagli PoE'),
+        title:
+            const Text('Dettagli PoE', style: TextStyle(color: Colors.black)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -95,7 +92,7 @@ class PoADetailsPage extends StatelessWidget {
                   _buildSectionTitle("Dati di Engagement"),
                   _buildTable([
                     _buildTableRow('Codifica', engagementEncoding),
-                    _buildTableRow('Dati (Base64)', engagementData),
+                    _buildTableRow('Dati', engagementData),
                     _buildTableRow('Dati Decodificati',
                         utf8.decode(base64Decode(engagementData))),
                   ]),
