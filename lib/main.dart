@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/html.dart';
+import '../utility/websocket_service.dart';
 import '../utility/crypto_helper.dart';
 import '../utility/poa_parser.dart';
+import '../utility/common_widgets.dart';
+import '../utility/ui_components.dart';
 import '../pages/poa_details_page.dart';
 import 'package:pointycastle/pointycastle.dart' as pc;
 
@@ -32,57 +33,26 @@ class WebSocketPage extends StatefulWidget {
 }
 
 class _WebSocketPageState extends State<WebSocketPage> {
-  late WebSocketChannel _channel;
   final List<String> _messages = [];
-  final String _peerId = "poe_tp"; // ID del peer
-  final String _targetPeer = "poe_client"; // Peer destinatario fisso
-  String? _challenge; // Challenge generata
-  Map<String, dynamic>? _receivedJson; // JSON ricevuto e verificato
+  final String _peerId = "poe_tp";
+  final String _targetPeer = "poe_client";
+  String? _challenge;
+  Map<String, dynamic>? _receivedJson;
   String _poEToShow = "";
-
-  // ES verification key
+  late WebSocketService _webSocketService;
   pc.RSAPublicKey? _verificationKey;
 
   @override
   void initState() {
     super.initState();
-
-    _channel = HtmlWebSocketChannel.connect('ws://localhost:8080');
-
-    // Registra il peer al server inviando solo l'ID
-    _channel.sink.add(_peerId);
-
-    // Ascolta i messaggi ricevuti
-    _channel.stream.listen((message) {
-      _handleMessage(message);
-    });
+    _webSocketService = WebSocketService(
+      peerId: _peerId,
+      onMessage: _handleMessage,
+    );
   }
 
-  // per inviare un messaggio dato il json
   void _sendMessage(Map<String, dynamic> message) {
-    _channel.sink.add(jsonEncode(message));
-  }
-
-  /// Invia un messaggio di 'hello' per capire se e' connesso agli altri peers
-  // per creare il json di un messaggio hello
-  Map<String, dynamic> _buildHelloMessage(
-      String targetPeer, String messageKeyString) {
-    if (messageKeyString != "hello" && messageKeyString != "responseHello") {
-      return {
-        "sourcePeer": _peerId,
-        "targetPeer": targetPeer,
-        "payload": base64Encode(utf8.encode(jsonEncode({
-          "error": "Errore: Il formato del messaggio di 'hello' e' sbagliato."
-        }))),
-      };
-    } else {
-      return {
-        "sourcePeer": _peerId,
-        "targetPeer": targetPeer,
-        "payload": base64Encode(
-            utf8.encode(jsonEncode({messageKeyString: "Ciao da $_peerId."}))),
-      };
-    }
+    _webSocketService.sendMessage(message);
   }
 
   void _requestVerificationKey() {
@@ -101,10 +71,8 @@ class _WebSocketPageState extends State<WebSocketPage> {
     });
   }
 
-  /// Gestisce i messaggi ricevuti dal WebSocket
   void _handleMessage(String message) async {
     try {
-      // Controlla se il messaggio è un JSON valido
       if (!_isJson(message)) {
         setState(() {
           _messages.add("Errore: $message non è in formato JSON.");
@@ -112,31 +80,18 @@ class _WebSocketPageState extends State<WebSocketPage> {
         return;
       }
 
-      // Decodifica il messaggio JSON
       final data = jsonDecode(message);
 
       if (data['payload'] != null) {
-        // Decodifica il payload in Base64
         final payloadString = utf8.decode(base64Decode(data['payload']));
         final payload = jsonDecode(payloadString);
 
-        /*
-        // DEBUG
-        setState(() {
-          _messages.add("Payload: $payload");
-        });
-        */
-
         if (payload['json'] != null && payload['signature'] != null) {
-          // Logica di verifica firma JSON
           _processSignedJson(payload, data);
-          // se la PoE viene trasferita occorre verificare la challenge
-          // con la owner_public_key che si trova nella blockchain
         } else if (payload['signed_challenge'] != null &&
             payload['verification_key'] != null &&
             payload['verification_key'] ==
                 _receivedJson!['public_key']['verification_key']) {
-          // Logica di verifica della challenge
           _processChallenge(payload, data);
         } else if (payload.containsKey("es_verification_key")) {
           setState(() {
@@ -146,16 +101,13 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 "Chiave di verifica di ES ricevuta: ${payload["es_verification_key"]}");
           });
         } else if (payload['hello'] != null) {
-          // scrivi il saluto in chat
           setState(() {
             _messages.add(payload['hello']);
           });
-          // rispondo al saluto
-          // rispondo al saluto
           final targetPeerName = data['sourcePeer'];
-          _sendMessage(_buildHelloMessage(targetPeerName, 'responseHello'));
+          _sendMessage(_webSocketService.buildHelloMessage(
+              targetPeerName, 'responseHello'));
         } else if (payload['responseHello'] != null) {
-          // scrivi il saluto in chat
           setState(() {
             _messages.add(payload['responseHello']);
           });
@@ -168,7 +120,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
-  /// Controlla se una stringa è un JSON valido
   bool _isJson(String str) {
     try {
       jsonDecode(str);
@@ -178,7 +129,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
-  /// Logica di verifica firma JSON
   void _processSignedJson(
       Map<String, dynamic> payload, Map<String, dynamic> data) {
     if (_verificationKey == null) {
@@ -188,11 +138,9 @@ class _WebSocketPageState extends State<WebSocketPage> {
       return;
     }
 
-    // Caso 1: Ricezione del JSON iniziale firmato
     final signedJson = payload['json'];
     final signature = base64Decode(payload['signature']);
 
-    // Verifica la firma del JSON
     final isValid =
         CryptoHelper.verifySignature(signedJson, signature, _verificationKey!);
 
@@ -200,35 +148,24 @@ class _WebSocketPageState extends State<WebSocketPage> {
       setState(() {
         _messages.add(
             "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON valida. JSON salvato per la verifica futura.");
-        _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
+        _receivedJson = jsonDecode(signedJson);
       });
 
-      // invia la challenge al client
       _sendChallenge(data['sourcePeer']);
     } else {
       setState(() {
         _messages.add(
             "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
       });
-      // debug
-      /*
-      setState(() {
-        _messages.add(
-            "signed json: $signedJson, signature: ${payload['signature']}, public key: ${_verificationKey!}");
-        _receivedJson = jsonDecode(signedJson); // Salva il JSON per dopo
-      });
-      */
     }
   }
 
   void _processChallenge(
       Map<String, dynamic> payload, Map<String, dynamic> data) {
-    // Caso 2: Ricezione della challenge firmata
     final signedChallenge = base64Decode(payload['signed_challenge']);
     final verificationKey =
         CryptoHelper.decodeRSAPublicKeyFromBase64(payload['verification_key']);
 
-    // Verifica la firma della challenge
     final isChallengeValid = CryptoHelper.verifySignature(
         _challenge!, signedChallenge, verificationKey);
 
@@ -248,10 +185,8 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
-  /// Genera una nuova challenge e la invia al peer client
   void _sendChallenge(String targetPeer) {
     try {
-      // Genera e invia una challenge al client
       _challenge = "Challenge_${DateTime.now().millisecondsSinceEpoch}";
       final challengeMessage = {
         "sourcePeer": _peerId,
@@ -259,7 +194,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
         "payload":
             base64Encode(utf8.encode(jsonEncode({"challenge": _challenge}))),
       };
-      // invio della challenge
       _sendMessage(challengeMessage);
       setState(() {
         _messages.add("Challenge inviata al Client.");
@@ -271,7 +205,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
     }
   }
 
-  // Metodo per verificare il JSON firmato ricevuto dal client
   void _validateJson() {
     if (_receivedJson == null) {
       setState(() {
@@ -285,9 +218,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
 
     setState(() {
       if (isValid) {
-        // reset current poe
         _receivedJson = null;
-        // move to details page
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -310,7 +241,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
         );
       } else {
         _poEToShow = parser.validate();
-        // Mostra un messaggio di errore
         showDialog(
           context: context,
           builder: (BuildContext context) {
@@ -334,17 +264,14 @@ class _WebSocketPageState extends State<WebSocketPage> {
 
   @override
   void dispose() {
-    _channel.sink.close();
+    _webSocketService.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('PoE TP'),
-      ),
+      appBar: UIComponents.buildAppBar(context, 'PoE TP'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -359,46 +286,21 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 color: Colors.deepPurple,
               ),
             ),
-            const SizedBox(height: 8), // Spazio tra titolo e lista
-
-            // Box con la ListView dei messaggi
+            const SizedBox(height: 8),
             Expanded(
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 4, // Effetto ombra per il box
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: ListView.builder(
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      return ListTile(
-                        leading: Icon(Icons.message, color: Colors.deepPurple),
-                        title: Text(_messages[index]),
-                        tileColor: Colors.grey[200],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
+              child: CommonWidgets.buildMessageList(_messages),
             ),
-
-            const SizedBox(height: 16), // Spazio prima dei bottoni
-
-            // Bottoni allineati meglio con Wrap
+            const SizedBox(height: 16),
             Wrap(
-              spacing: 8.0, // Spazio orizzontale tra i bottoni
-              runSpacing: 8.0, // Spazio verticale tra le righe di bottoni
+              spacing: 8.0,
+              runSpacing: 8.0,
               alignment: WrapAlignment.center,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      _sendMessage(_buildHelloMessage("poe_client", 'hello')),
-                  icon: Icon(Icons.network_check),
+                  onPressed: () => _sendMessage(
+                    _webSocketService.buildHelloMessage("poe_client", 'hello'),
+                  ),
+                  icon: const Icon(Icons.network_check),
                   label: const Text('Testa connessione con poe_client'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
@@ -406,9 +308,10 @@ class _WebSocketPageState extends State<WebSocketPage> {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      _sendMessage(_buildHelloMessage("poe_es", 'hello')),
-                  icon: Icon(Icons.network_check),
+                  onPressed: () => _sendMessage(
+                    _webSocketService.buildHelloMessage("poe_es", 'hello'),
+                  ),
+                  icon: const Icon(Icons.network_check),
                   label: const Text('Testa connessione con poe_es'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
@@ -417,7 +320,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 ),
                 ElevatedButton.icon(
                   onPressed: _requestVerificationKey,
-                  icon: Icon(Icons.vpn_key),
+                  icon: const Icon(Icons.vpn_key),
                   label: const Text('Chiedi chiave di verifica a ES'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
