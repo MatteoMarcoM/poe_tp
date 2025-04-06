@@ -67,7 +67,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     _sendMessage(requestMessage);
 
     setState(() {
-      _messages.add("Richiesta della chiave di verifica inviata al poe_es");
+      _messages.add("Verification key request sent to poe_es");
     });
   }
 
@@ -75,7 +75,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     try {
       if (!_isJson(message)) {
         setState(() {
-          _messages.add("Errore: $message non è in formato JSON.");
+          _messages.add("Error: $message is not in JSON format.");
         });
         return;
       }
@@ -98,7 +98,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
             _verificationKey = CryptoHelper.decodeRSAPublicKeyFromBase64(
                 payload["es_verification_key"]);
             _messages.add(
-                "Chiave di verifica di ES ricevuta: ${payload["es_verification_key"]}");
+                "ES verification key received: ${payload["es_verification_key"]}");
           });
         } else if (payload['hello'] != null) {
           setState(() {
@@ -115,7 +115,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
       }
     } catch (e) {
       setState(() {
-        _messages.add("Errore durante l'elaborazione del messaggio: $e");
+        _messages.add("Error processing message: $e");
       });
     }
   }
@@ -133,7 +133,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
       Map<String, dynamic> payload, Map<String, dynamic> data) {
     if (_verificationKey == null) {
       setState(() {
-        _messages.add("La chiave di verifica di ES e' null.");
+        _messages.add("ES verification key is null.");
       });
       return;
     }
@@ -147,7 +147,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     if (isValid) {
       setState(() {
         _messages.add(
-            "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON valida. JSON salvato per la verifica futura.");
+            "JSON received from ${data['sourcePeer']}. Valid JSON signature. JSON saved for future verification.");
         _receivedJson = jsonDecode(signedJson);
       });
 
@@ -155,7 +155,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     } else {
       setState(() {
         _messages.add(
-            "JSON ricevuto da ${data['sourcePeer']}. Firma del JSON non valida!");
+            "JSON received from ${data['sourcePeer']}. Invalid JSON signature!");
       });
     }
   }
@@ -172,7 +172,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
     if (isChallengeValid && _receivedJson != null) {
       setState(() {
         _messages.add(
-            "Challenge valida! Per validare il formato della PoE e visualizzarla premere il pulsante 'Mostra PoE' in basso.");
+            "Valid challenge! To validate the PoE format and view it, press the 'Show PoE' button below.");
 
         // Valida e mostra il JSON salvato
         // FATTO COL BOTTONE?
@@ -180,7 +180,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
       });
     } else {
       setState(() {
-        _messages.add("Firma della challenge non valida!");
+        _messages.add("Invalid challenge signature!");
       });
     }
   }
@@ -196,11 +196,11 @@ class _WebSocketPageState extends State<WebSocketPage> {
       };
       _sendMessage(challengeMessage);
       setState(() {
-        _messages.add("Challenge inviata al Client.");
+        _messages.add("Challenge sent to Client.");
       });
     } catch (e) {
       setState(() {
-        _messages.add("Errore durante l'invio della challenge: $e");
+        _messages.add("Error sending challenge: $e");
       });
     }
   }
@@ -245,11 +245,11 @@ class _WebSocketPageState extends State<WebSocketPage> {
           context: context,
           builder: (BuildContext context) {
             return AlertDialog(
-              title: const Text('Errore'),
+              title: const Text('Error'),
               content: Text(_poEToShow),
               actions: <Widget>[
                 TextButton(
-                  child: const Text('Chiudi'),
+                  child: const Text('Close'),
                   onPressed: () {
                     Navigator.of(context).pop();
                   },
@@ -279,7 +279,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
           children: [
             // Titolo sopra la lista dei messaggi
             const Text(
-              "Messaggi ricevuti",
+              "Received Messages",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -301,7 +301,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
                     _webSocketService.buildHelloMessage("poe_client", 'hello'),
                   ),
                   icon: const Icon(Icons.network_check),
-                  label: const Text('Testa connessione con poe_client'),
+                  label: const Text('Test connection with poe_client'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -312,7 +312,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
                     _webSocketService.buildHelloMessage("poe_es", 'hello'),
                   ),
                   icon: const Icon(Icons.network_check),
-                  label: const Text('Testa connessione con poe_es'),
+                  label: const Text('Test connection with poe_es'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -321,7 +321,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 ElevatedButton.icon(
                   onPressed: _requestVerificationKey,
                   icon: const Icon(Icons.vpn_key),
-                  label: const Text('Chiedi chiave di verifica a ES'),
+                  label: const Text('Request verification key from ES'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
@@ -330,7 +330,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
                 ElevatedButton.icon(
                   onPressed: _validateJson,
                   icon: const Icon(Icons.visibility),
-                  label: const Text('Mostra PoE'),
+                  label: const Text('Show PoE'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,

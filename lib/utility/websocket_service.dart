@@ -34,7 +34,7 @@ class WebSocketService {
         "sourcePeer": peerId,
         "targetPeer": targetPeer,
         "payload": base64Encode(utf8.encode(jsonEncode({
-          "error": "Errore: Il formato del messaggio di 'hello' e' sbagliato."
+          "error": "Error: The format of the 'hello' message is incorrect."
         }))),
       };
     } else {
@@ -42,7 +42,7 @@ class WebSocketService {
         "sourcePeer": peerId,
         "targetPeer": targetPeer,
         "payload": base64Encode(
-            utf8.encode(jsonEncode({messageKeyString: "Ciao da $peerId."}))),
+            utf8.encode(jsonEncode({messageKeyString: "Hello by $peerId."}))),
       };
     }
   }

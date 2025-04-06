@@ -36,7 +36,7 @@ class PoADetailsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: UIComponents.buildDetailsAppBar(context, 'Dettagli PoE'),
+      appBar: UIComponents.buildDetailsAppBar(context, 'PoE Details'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -55,7 +55,7 @@ class PoADetailsPage extends StatelessWidget {
                       const Icon(Icons.verified, color: Colors.green, size: 28),
                       const SizedBox(width: 10),
                       Text(
-                        'PoE Valida!',
+                        'Valid PoE!',
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall!
@@ -64,41 +64,39 @@ class PoADetailsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  UIComponents.buildSectionTitle("Informazioni Generali"),
+                  UIComponents.buildSectionTitle("General Information"),
                   UIComponents.buildTable([
-                    UIComponents.buildTableRow('Tipo di Prova', proofType),
+                    UIComponents.buildTableRow('Proof Type', proofType),
                     UIComponents.buildTableRow(
-                        'Algoritmo Chiave Pubblica', publicKeyAlgorithm),
+                        'Public Key Algorithm', publicKeyAlgorithm),
                     UIComponents.buildTableRow(
-                        'Chiave di Verifica', publicKeyVerification),
+                        'Verification Key', publicKeyVerification),
                     UIComponents.buildTableRow(
-                        'Trasferibile', transferable ? 'Sì' : 'No'),
+                        'Transferable', transferable ? 'Yes' : 'No'),
                     UIComponents.buildTableRow(
-                        'Formato Timestamp', timestampFormat),
-                    UIComponents.buildTableRow(
-                        'Orario Timestamp', timestampTime),
+                        'Timestamp Format', timestampFormat),
+                    UIComponents.buildTableRow('Timestamp Time', timestampTime),
                   ]),
                   const SizedBox(height: 20),
-                  UIComponents.buildSectionTitle("Dati GPS"),
+                  UIComponents.buildSectionTitle("GPS Data"),
                   UIComponents.buildTable([
-                    UIComponents.buildTableRow('Latitudine', gpsLat.toString()),
-                    UIComponents.buildTableRow(
-                        'Longitudine', gpsLng.toString()),
-                    UIComponents.buildTableRow('Altitudine', gpsAlt.toString()),
+                    UIComponents.buildTableRow('Latitude', gpsLat.toString()),
+                    UIComponents.buildTableRow('Longitude', gpsLng.toString()),
+                    UIComponents.buildTableRow('Altitude', gpsAlt.toString()),
                   ]),
                   const SizedBox(height: 20),
-                  UIComponents.buildSectionTitle("Dati di Engagement"),
+                  UIComponents.buildSectionTitle("Engagement Data"),
                   UIComponents.buildTable([
-                    UIComponents.buildTableRow('Codifica', engagementEncoding),
-                    UIComponents.buildTableRow('Dati', engagementData),
-                    UIComponents.buildTableRow('Dati Decodificati',
+                    UIComponents.buildTableRow('Encoding', engagementEncoding),
+                    UIComponents.buildTableRow('Data', engagementData),
+                    UIComponents.buildTableRow('Decoded Data',
                         utf8.decode(base64Decode(engagementData))),
                   ]),
                   const SizedBox(height: 20),
-                  UIComponents.buildSectionTitle("Dati Sensibili"),
+                  UIComponents.buildSectionTitle("Sensitive Data"),
                   UIComponents.buildDataTable(sensitiveDataHashMap),
                   const SizedBox(height: 20),
-                  UIComponents.buildSectionTitle("Altri Dati"),
+                  UIComponents.buildSectionTitle("Other Data"),
                   UIComponents.buildDataTable(otherDataHashMap),
                   const SizedBox(height: 20),
                 ],
