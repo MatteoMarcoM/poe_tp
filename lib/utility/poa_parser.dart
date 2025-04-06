@@ -9,7 +9,7 @@ class PoAParser {
 
   PoAParser(this.rawJson);
 
-  // Informazioni estratte dal JSON
+  // Information extracted from JSON
   String proofType = '';
   bool transferable = false;
   String publicKeyAlgorithm = '';
@@ -27,38 +27,38 @@ class PoAParser {
   bool validateAndParse() {
     String validationMessage = validate();
     if (validationMessage == successMessage) {
-      // Parsing completo dei campi
+      // Complete field parsing
       proofType = parsedJson['proof_type'];
       transferable = parsedJson['transferable'];
 
-      // Parsing della chiave pubblica
+      // Public key parsing
       final publicKey = parsedJson['public_key'];
       publicKeyAlgorithm = publicKey['algorithm'];
       publicKeyVerification = publicKey['verification_key'];
 
-      // Parsing del timestamp
+      // Timestamp parsing
       final timestamp = parsedJson['timestamp'];
       timestampFormat = timestamp['time_format'];
       timestampTime = timestamp['time'];
 
-      // Parsing delle coordinate GPS
+      // GPS coordinates parsing
       final gps = parsedJson['gps'];
       gpsLat = gps['lat'].toDouble();
       gpsLng = gps['lng'].toDouble();
       gpsAlt = gps['alt'].toDouble();
 
-      // Parsing dei dati di engagement
+      // Engagement data parsing
       final engagement = parsedJson['engagement_data'];
       engagementEncoding = engagement['encoding'];
       engagementData = engagement['data'];
 
-      // Parsing dei dati sensibili
+      // Sensitive data parsing
       final sensitiveData = parsedJson['sensitive_data'];
       sensitiveData.forEach((key, value) {
         sensitiveDataHashMap[key] = value;
       });
 
-      // Parsing di other_data
+      // Other data parsing
       if (parsedJson.containsKey('other_data')) {
         otherDataHashMap = parsedJson['other_data'];
       }
@@ -73,7 +73,7 @@ class PoAParser {
     try {
       parsedJson = jsonDecode(rawJson);
 
-      // Verifica delle chiavi principali
+      // Checking main keys
       if (!parsedJson.containsKey('proof_type') ||
           parsedJson['proof_type'] is! String) {
         return 'Error: The "proof_type" field is missing or not a string.';
@@ -87,7 +87,7 @@ class PoAParser {
         return 'Error: The "public_key" field is missing or not an object.';
       }
 
-      // Verifica della chiave pubblica
+      // Public key verification
       final publicKey = parsedJson['public_key'];
       if (!publicKey.containsKey('algorithm') ||
           publicKey['algorithm'] is! String) {
@@ -98,7 +98,7 @@ class PoAParser {
         return 'Error: The "verification_key" field is missing or not a string.';
       }
 
-      // Verifica del timestamp
+      // Timestamp verification
       if (!parsedJson.containsKey('timestamp') ||
           parsedJson['timestamp'] is! Map) {
         return 'Error: The "timestamp" field is missing or not an object.';
@@ -112,7 +112,7 @@ class PoAParser {
         return 'Error: The "time" field is missing or not a string.';
       }
 
-      // Verifica delle coordinate GPS
+      // GPS coordinates verification
       if (!parsedJson.containsKey('gps') || parsedJson['gps'] is! Map) {
         return 'Error: The "gps" field is missing or not an object.';
       }
@@ -127,7 +127,7 @@ class PoAParser {
         return 'Error: The "alt" field is missing or not a number.';
       }
 
-      // Verifica dei dati di engagement
+      // Engagement data verification
       if (!parsedJson.containsKey('engagement_data') ||
           parsedJson['engagement_data'] is! Map) {
         return 'Error: The "engagement_data" field is missing or not an object.';
@@ -142,7 +142,7 @@ class PoAParser {
         return 'Error: The "data" field is missing or not a string.';
       }
 
-      // Verifica dei dati sensibili
+      // Sensitive data verification
       if (!parsedJson.containsKey('sensitive_data') ||
           parsedJson['sensitive_data'] is! Map) {
         return 'Error: The "sensitive_data" field is missing or not an object.';
@@ -154,7 +154,7 @@ class PoAParser {
         }
       });
 
-      // Verifica di other_data (facoltativa)
+      // Other data verification (optional)
       if (parsedJson.containsKey('other_data') &&
           parsedJson['other_data'] is! Map) {
         return 'Error: The "other_data" field is not a valid JSON object.';

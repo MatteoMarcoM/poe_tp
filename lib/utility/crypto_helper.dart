@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 
 class CryptoHelper {
-  /// Genera una coppia di chiavi RSA
+  /// Generates an RSA key pair
   static AsymmetricKeyPair<PublicKey, PrivateKey> generateRSAKeyPair() {
     final secureRandom = FortunaRandom();
     final seed = Uint8List.fromList(
@@ -22,7 +22,7 @@ class CryptoHelper {
     return keyGen.generateKeyPair();
   }
 
-  /// Firma il contenuto JSON con una chiave privata RSA
+  /// Signs the JSON content with an RSA private key
   static Uint8List signJson(String jsonString, RSAPrivateKey privateKey) {
     final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
     signer.init(true, PrivateKeyParameter<RSAPrivateKey>(privateKey));
@@ -31,7 +31,7 @@ class CryptoHelper {
     return signer.generateSignature(jsonBytes).bytes;
   }
 
-  /// Verifica la firma digitale di un file JSON
+  /// Verifies the digital signature of a JSON file
   static bool verifySignature(
       String jsonString, Uint8List signature, RSAPublicKey publicKey) {
     final signer = RSASigner(SHA256Digest(), '0609608648016503040201');
@@ -45,7 +45,7 @@ class CryptoHelper {
     }
   }
 
-  /// Converte una chiave pubblica RSA da Base64
+  /// Converts an RSA public key from Base64
   static RSAPublicKey decodeRSAPublicKeyFromBase64(String base64Key) {
     final keyBytes = base64Decode(base64Key);
     final modulus =
