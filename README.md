@@ -2,7 +2,7 @@
 
 **Author**: Matteo Marco Montanari.
 
-To Run **locally** the Web App of Third Pary Module in your PC, install [Flutter SDK](https://docs.flutter.dev/get-started/install) runtime and run the following command (inside the folder of this project):
+To Run **locally** the Web App of Third Party Module in your PC, install [Flutter SDK](https://docs.flutter.dev/get-started/install) runtime and run the following command (inside the folder of this project):
 ```
 flutter pub get
 ```
