@@ -20,22 +20,21 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'PoE TP',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const WebSocketPage(),
+      home: const TPModule(),
     );
   }
 }
 
-class WebSocketPage extends StatefulWidget {
-  const WebSocketPage({super.key});
+class TPModule extends StatefulWidget {
+  const TPModule({super.key});
 
   @override
-  State<WebSocketPage> createState() => _WebSocketPageState();
+  State<TPModule> createState() => _TPModuleState();
 }
 
-class _WebSocketPageState extends State<WebSocketPage> {
+class _TPModuleState extends State<TPModule> {
   final List<String> _messages = [];
   final String _peerId = "poe_tp";
-  final String _targetPeer = "poe_client";
   String? _challenge;
   Map<String, dynamic>? _receivedJson;
   String _poEToShow = "";
@@ -173,10 +172,6 @@ class _WebSocketPageState extends State<WebSocketPage> {
       setState(() {
         _messages.add(
             "Valid challenge! To validate the PoE format and view it, press the 'Show PoE' button below.");
-
-        // Valida e mostra il JSON salvato
-        // FATTO COL BOTTONE?
-        //_validateJson();
       });
     } else {
       setState(() {
@@ -277,7 +272,7 @@ class _WebSocketPageState extends State<WebSocketPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Titolo sopra la lista dei messaggi
+            // title above the list of messages
             const Text(
               "Received Messages",
               style: TextStyle(
